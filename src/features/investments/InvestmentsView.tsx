@@ -64,6 +64,10 @@ export const InvestmentsView: React.FC = () => {
   const [harvestModalOpen, setHarvestModalOpen] = useState(false);
   const [harvestAmount, setHarvestAmount] = useState('');
   const [harvestAccountId, setHarvestAccountId] = useState<number | ''>('');
+  // Modal de Proventos/Dividendos (Ativos Tradicionais)
+  const [dividendModalOpen, setDividendModalOpen] = useState(false);
+  const [dividendAmount, setDividendAmount] = useState('');
+  const [dividendAccountId, setDividendAccountId] = useState<number | ''>('');
 
   // Estados do Simulador Interativo de Impermanent Loss (AMM x*y=k)
   const [simQtyA, setSimQtyA] = useState<number>(1.0); // 1 ETH
@@ -206,6 +210,39 @@ export const InvestmentsView: React.FC = () => {
     });
 
     setHarvestModalOpen(false);
+  };
+
+  const handleConfirmDividend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedItemId || dividendAccountId === '') {
+      alert("Por favor, selecione uma conta de destino.");
+      return;
+    }
+    
+    const amount = parseFloat(dividendAmount.replace(',', '.'));
+    if (isNaN(amount) || amount <= 0) return;
+
+    const inv = await db.investments.get(selectedItemId);
+    const acc = await db.accounts.get(Number(dividendAccountId));
+    if (!inv || !acc) return;
+
+    // Convertendo o valor colhido da moeda do ativo para a moeda da conta de destino
+    const amountInAccCurrency = convertCurrency(amount, inv.currency, acc.currency, quotes);
+
+    // Atualiza a conta de destino
+    await db.accounts.update(acc.id!, { initialBalance: acc.initialBalance + amountInAccCurrency });
+
+    // Registra a transação de fluxo de caixa
+    await db.transactions.add({
+      type: 'income',
+      accountId: acc.id!,
+      amount: amountInAccCurrency,
+      category: 'Saque de Investimento',
+      description: `Proventos/Dividendos de ${inv.ticker}`,
+      date: new Date().toISOString().split('T')[0]
+    });
+
+    setDividendModalOpen(false);
   };
 
   const handleDeleteInv = async (id?: number) => {
@@ -526,8 +563,8 @@ export const InvestmentsView: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-3.5 pr-4">
-                          <Badge variant={inv.type === 'acao' ? 'info' : inv.type === 'renda_fixa' ? 'success' : 'purple'}>
-                            {inv.type === 'acao' ? 'Ações' : inv.type === 'renda_fixa' ? 'Renda Fixa' : 'Cripto Hold'}
+                          <Badge variant={inv.type === 'acao' ? 'info' : inv.type === 'renda_fixa' ? 'success' : inv.type === 'fundo' ? 'warning' : 'purple'}>
+                            {inv.type === 'acao' ? 'Ações' : inv.type === 'renda_fixa' ? 'Renda Fixa' : inv.type === 'fundo' ? 'Fundo/ETF' : 'Cripto Hold'}
                           </Badge>
                         </td>
                         <td className="py-3.5 text-right font-mono text-gray-700 dark:text-gray-300">{inv.quantity}</td>
@@ -565,6 +602,18 @@ export const InvestmentsView: React.FC = () => {
                             title="Aportar mais saldo"
                           >
                             <Plus className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setSelectedItemId(inv.id!);
+                              setDividendAmount('');
+                              setDividendAccountId('');
+                              setDividendModalOpen(true);
+                            }}
+                            className="p-1 text-gray-400 hover:text-amber-500 mr-1"
+                            title="Receber Proventos / Dividendos"
+                          >
+                            <Award className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleDeleteInv(inv.id)} className="p-1 text-gray-400 hover:text-rose-500" title="Excluir Ativo">
                             <Trash2 className="w-4 h-4" />
@@ -956,6 +1005,39 @@ export const InvestmentsView: React.FC = () => {
             <Button type="submit" variant="primary">
               Confirmar Novo Preço
             </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal de Proventos / Dividendos */}
+      <Modal isOpen={dividendModalOpen} onClose={() => setDividendModalOpen(false)} title="Receber Proventos ou Dividendos">
+        <form onSubmit={handleConfirmDividend} className="space-y-4">
+          <Input 
+            label="Valor Recebido (Na moeda do Ativo)" 
+            type="number" 
+            step="any" 
+            placeholder="Ex: 45.50"
+            value={dividendAmount}
+            onChange={(e) => setDividendAmount(e.target.value)}
+            required
+            autoFocus
+          />
+          <Select
+            label="Conta de Destino"
+            value={dividendAccountId}
+            onChange={(e) => setDividendAccountId(e.target.value ? Number(e.target.value) : '')}
+            required
+            options={[
+              { value: '', label: '-- Selecione onde depositar --' },
+              ...accounts.map(a => ({ value: a.id!.toString(), label: `${a.name} (${a.currency})` }))
+            ]}
+          />
+          <p className="text-xs text-gray-500 leading-relaxed">
+            <strong>Dica:</strong> O valor será convertido automaticamente para a moeda da conta de destino (se necessário) e será gerada uma transação de "Saque de Investimento" em sua aba de Registros.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-gray-200 dark:border-gray-800">
+            <Button type="button" variant="outline" onClick={() => setDividendModalOpen(false)}>Cancelar</Button>
+            <Button type="submit" variant="primary">Confirmar Recebimento</Button>
           </div>
         </form>
       </Modal>

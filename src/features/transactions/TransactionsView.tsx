@@ -22,7 +22,7 @@ import {
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeftRight, Plus, Search, Trash2, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { ArrowLeftRight, Plus, Search, Trash2, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, ArrowUpDown, Download } from 'lucide-react';
 
 const transactionSchema = z.object({
   type: z.enum(['income', 'expense', 'transfer']),
@@ -106,6 +106,43 @@ export const TransactionsView: React.FC = () => {
     if (window.confirm('Tem certeza que deseja apagar esta transação do histórico no IndexedDB?')) {
       await db.transactions.delete(id);
     }
+  };
+
+  const exportToCSV = () => {
+    if (transactions.length === 0) {
+      alert('Não há registros para exportar.');
+      return;
+    }
+    
+    const headers = ['Data', 'Tipo', 'Categoria', 'Conta_Origem', 'Conta_Destino', 'Descricao', 'Valor'];
+    
+    const rows = transactions.map(tx => {
+      const acc = accounts.find(a => a.id === tx.accountId);
+      const destAcc = tx.destinationAccountId ? accounts.find(a => a.id === tx.destinationAccountId) : null;
+      
+      const tipoStr = tx.type === 'income' ? 'Entrada' : tx.type === 'expense' ? 'Saida' : 'Transferencia';
+      const valorStr = tx.amount.toFixed(2);
+      
+      return [
+        tx.date,
+        tipoStr,
+        `"${tx.category}"`,
+        `"${acc ? acc.name : ''}"`,
+        `"${destAcc ? destAcc.name : ''}"`,
+        `"${tx.description}"`,
+        valorStr
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `midas_relatorio_transacoes_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const columns = useMemo<ColumnDef<Transaction, any>[]>(() => [
@@ -232,19 +269,28 @@ export const TransactionsView: React.FC = () => {
             Histórico completo de fluxo de caixa operado com paginação e filtros dinâmicos via TanStack Table.
           </p>
         </div>
-        <Button 
-          onClick={() => {
-            if (accounts.length === 0) {
-              alert('Cadastre pelo menos uma conta ou carteira para realizar transações!');
-              return;
-            }
-            setIsModalOpen(true);
-          }} 
-          variant="primary" 
-          leftIcon={<Plus className="w-4 h-4" />}
-        >
-          Novo Lançamento
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={exportToCSV} 
+            variant="outline" 
+            leftIcon={<Download className="w-4 h-4" />}
+          >
+            Relatório CSV
+          </Button>
+          <Button 
+            onClick={() => {
+              if (accounts.length === 0) {
+                alert('Cadastre pelo menos uma conta ou carteira para realizar transações!');
+                return;
+              }
+              setIsModalOpen(true);
+            }} 
+            variant="primary" 
+            leftIcon={<Plus className="w-4 h-4" />}
+          >
+            Novo Lançamento
+          </Button>
+        </div>
       </div>
 
       {/* TanStack Table Container */}
