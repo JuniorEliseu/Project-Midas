@@ -101,7 +101,7 @@ export async function seedDatabase(): Promise<void> {
         type: 'income',
         accountId: nubankId as number,
         amount: 8500.00,
-        category: 'Salário & Proventos',
+        category: 'Salário',
         description: 'Recebimento Mensal Empresa Tech',
         date: formatDate(1)
       },
@@ -109,7 +109,7 @@ export async function seedDatabase(): Promise<void> {
         type: 'expense',
         accountId: nubankId as number,
         amount: 1850.40,
-        category: 'Moradia & Aluguel',
+        category: 'Aluguéis',
         description: 'Aluguel + Condomínio Mês Vigente',
         date: formatDate(3)
       },
@@ -117,7 +117,7 @@ export async function seedDatabase(): Promise<void> {
         type: 'expense',
         accountId: nubankId as number,
         amount: 640.20,
-        category: 'Alimentação & Lazer',
+        category: 'Mercado',
         description: 'Jantar Restaurante + Supermercado',
         date: formatDate(4)
       },
@@ -127,7 +127,7 @@ export async function seedDatabase(): Promise<void> {
         destinationAccountId: xpId as number,
         amount: 3000.00,
         destinationAmount: 3000.00,
-        category: 'Aporte Mensal',
+        category: 'Investimentos',
         description: 'Transferência para Aportes em Ações e FIIs',
         date: formatDate(5)
       },
@@ -137,7 +137,7 @@ export async function seedDatabase(): Promise<void> {
         destinationAccountId: binanceId as number,
         amount: 5500.00, // em BRL approx $1000
         destinationAmount: 1000.00, // em USD
-        category: 'Aporte Cripto',
+        category: 'Investimentos',
         description: 'Depósito Via PIX na Binance para compra de Stablecoins',
         date: formatDate(8)
       },
@@ -145,7 +145,7 @@ export async function seedDatabase(): Promise<void> {
         type: 'income',
         accountId: binanceId as number,
         amount: 145.80,
-        category: 'DeFi & Rendimentos',
+        category: 'Rendimentos DeFi',
         description: 'Recompensas de Liquidity Pool (Staking Rewards)',
         date: formatDate(10)
       }

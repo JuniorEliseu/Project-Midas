@@ -122,7 +122,7 @@ export const InvestmentsView: React.FC = () => {
         type: 'income',
         accountId: 0,
         amount: totalValueBRL,
-        category: 'Aporte Inicial',
+        category: 'Investimentos',
         description: `Aporte em ${data.name}`,
         date: new Date().toISOString().split('T')[0]
       });
@@ -158,7 +158,7 @@ export const InvestmentsView: React.FC = () => {
         type: 'income',
         accountId: 0,
         amount: tvlBRL,
-        category: 'Aporte Inicial',
+        category: 'Investimentos',
         description: `Posição DeFi em ${data.protocol}`,
         date: new Date().toISOString().split('T')[0]
       });

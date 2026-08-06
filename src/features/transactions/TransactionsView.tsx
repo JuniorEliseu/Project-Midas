@@ -52,7 +52,7 @@ export const TransactionsView: React.FC = () => {
       accountId: '',
       destinationAccountId: '',
       amount: '',
-      category: 'Alimentação & Lazer',
+      category: 'Mercado',
       description: '',
       date: new Date().toISOString().split('T')[0]
     }
@@ -397,15 +397,23 @@ export const TransactionsView: React.FC = () => {
               {...register('category')}
               error={errors.category?.message}
               options={[
-                { value: 'Alimentação & Lazer', label: 'Alimentação & Lazer' },
-                { value: 'Moradia & Aluguel', label: 'Moradia & Aluguel' },
-                { value: 'Salário & Proventos', label: 'Salário & Proventos' },
-                { value: 'Aporte Mensal', label: 'Aporte Mensal (Ações/FIIs)' },
-                { value: 'Aporte Cripto', label: 'Aporte Cripto & DeFi' },
-                { value: 'Transporte & Veículo', label: 'Transporte & Veículo' },
-                { value: 'Saúde & Bem-estar', label: 'Saúde & Bem-estar' },
-                { value: 'Serviços & Assinaturas', label: 'Serviços & Assinaturas' },
-                { value: 'DeFi & Rendimentos', label: 'DeFi & Rendimentos' },
+                { value: 'Salário', label: 'Salário' },
+                { value: 'Freelances', label: 'Freelances' },
+                { value: 'Vendas', label: 'Vendas' },
+                { value: 'Mercado', label: 'Mercado' },
+                { value: 'Delivery', label: 'Delivery' },
+                { value: 'Casa & Reforma', label: 'Casa & Reforma' },
+                { value: 'Aluguéis', label: 'Aluguéis' },
+                { value: 'Transporte e Veículos', label: 'Transporte e Veículos' },
+                { value: 'Saúde e Bem estar', label: 'Saúde e Bem estar' },
+                { value: 'Pet', label: 'Pet' },
+                { value: 'Tecnologia', label: 'Tecnologia' },
+                { value: 'Lazer', label: 'Lazer' },
+                { value: 'Impostos & Multas', label: 'Impostos & Multas' },
+                { value: 'Investimentos', label: 'Investimentos' },
+                { value: 'Saque de Investimento', label: 'Saque de Investimento' },
+                { value: 'Rendimentos DeFi', label: 'Rendimentos DeFi' },
+                { value: 'Saque DeFi', label: 'Saque DeFi' },
               ]}
             />
           </div>
