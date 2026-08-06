@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply m-0 p-0 overflow-x-hidden;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Panels */
+  .glass-panel {
+    @apply bg-white/80 dark:bg-dark-card/80 backdrop-blur-md border border-gray-200/80 dark:border-dark-border shadow-sm transition-all duration-200;
+  }
+
+  .glass-panel-hover {
+    @apply glass-panel hover:shadow-md hover:border-gray-300 dark:hover:border-blue-500/30;
+  }
+
+  /* Custom Gradients & Glows */
+  .glow-card {
+    position: relative;
+  }
+  .glow-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    background: linear-gradient(to right, #3b82f6, #8b5cf6, #f59e0b);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .glow-card:hover::before {
+    opacity: 0.15;
+  }
+  
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-700 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors;
+  }
+}

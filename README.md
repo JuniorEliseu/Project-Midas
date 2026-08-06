@@ -1,4 +1,4 @@
-# 🪙 Sistema Midas Wb - Planejamento Financeiro & Patrimônio (Simulado Acadêmico)
+# Sistema Midas Wb - Planejamento Financeiro & Patrimônio (Simulado Acadêmico)
 
 ![Status do Build](https://img.shields.io/badge/Build-Est%C3%A1tico%20SPA-00E676?style=for-the-badge)
 ![Arquitetura](https://img.shields.io/badge/Arquitetura-Offline%20First%20%7C%20Client--Side-3B82F6?style=for-the-badge)
@@ -8,7 +8,7 @@
 
 ---
 
-## 📋 1. Resumo & Proposta Acadêmica
+## 1. Resumo & Proposta Acadêmica
 
 O **Midas Wb** é uma aplicação web profissional de gerenciamento financeiro pessoal e controle de patrimônio misto (ativos tradicionais da Bolsa de Valores, Renda Fixa, Contas Bancárias, Moedas Fiduciárias e criptoativos com **Pools de Liquidez DeFi**). 
 
@@ -18,7 +18,7 @@ O design visual segue o padrão **Premium Modern Dark/Light Mode**, com influên
 
 ---
 
-## 🛠️ 2. Stack Tecnológica Permitida (100% Gratuita & Open-Source) & Justificativas
+## 2. Stack Tecnológica Permitida (100% Gratuita & Open-Source) & Justificativas
 
 A seleção tecnológica foi guiada pelos princípios de **SOLID, Clean Code, DRY** e máxima separação de responsabilidades (Apresentação, Estado Global e Serviços/Persistência):
 
@@ -36,7 +36,7 @@ A seleção tecnológica foi guiada pelos princípios de **SOLID, Clean Code, DR
 
 ---
 
-## 🌐 3. Integração de APIs Gratuitas & Política de Cache (Offline-First)
+## 3. Integração de APIs Gratuitas & Política de Cache (Offline-First)
 
 Para possibilitar conversões cambiais automáticas e métricas em tempo real sem custos de servidores de back-end, o sistema integra duas APIs públicas e gratuitas de cotação:
 1. **CoinGecko API (Plano Gratuito Public):** Consulta de cotações em Real/Dólar de ativos cripto (BTC, ETH, SOL, USDC) e variação percentual nas últimas 24 horas.
@@ -50,7 +50,7 @@ O serviço de API (`/src/services/api.ts`) é blindado com um padrão **Circuit 
 
 ---
 
-## 💾 4. Estrutura do Banco de Dados Local (IndexedDB / Dexie.js Schemas)
+## 4. Estrutura do Banco de Dados Local (IndexedDB / Dexie.js Schemas)
 
 O banco de dados transacional é inicializado sob o namespace `MidasWbDB` e estruturado nos seguintes esquemas:
 
@@ -75,7 +75,7 @@ this.version(1).stores({
 
 ---
 
-## 🧮 5. Destaque Técnico: Simulador Matemático de Impermanent Loss em DeFi
+## 5. Destaque Técnico: Simulador Matemático de Impermanent Loss em DeFi
 
 No módulo de Investimentos & DeFi, o sistema apresenta um **Laboratório Matemático Interativo de Impermanent Loss** (Perda Impermanente). Em protocolos DeFi de Automated Market Makers (AMM) sob produto constante ($X \times Y = K$), a variação relativa entre o preço de dois ativos gera divergência no valor do pool de liquidez em relação ao simples armazenamento na carteira física (*HODL*).
 
@@ -87,7 +87,7 @@ O usuário pode alterar os preços de ativos como ETH e USDC de forma reativa no
 
 ---
 
-## 🚀 6. Guia de Instalação e Execução em Ambiente de Desenvolvimento
+## 6. Guia de Instalação e Execução em Ambiente de Desenvolvimento
 
 Para rodar o projeto localmente em sua máquina para fins de desenvolvimento, modificação ou teste:
 
@@ -112,7 +112,7 @@ Para rodar o projeto localmente em sua máquina para fins de desenvolvimento, mo
 
 ---
 
-## 📦 7. Guia de Compilação Estática para Produção (Build)
+## 7. Guia de Compilação Estática para Produção (Build)
 
 Para gerar os arquivos estáticos autocontidos que podem ser hospedados gratuitamente no **GitHub Pages, Vercel, Netlify** ou simplesmente abertos via servidor local:
 
@@ -128,7 +128,7 @@ O pacote final não requer nenhum software especial no back-end — todo o proce
 
 ---
 
-## 🔒 8. Backup e Segurança Local (Criptografia AES-256)
+## 8. Backup e Segurança Local (Criptografia AES-256)
 
 Na tela **Segurança & Backup** do sistema, o usuário pode:
 - **Exportar Banco (.json):** Baixa um backup completo de sua carteira e histórico de transações e caixinhas. Se a chave de proteção for preenchida, o arquivo salvo no HD do usuário é transformado em uma string ilegível codificada em Base64 através da biblioteca **Crypto-JS sob padrão AES-256**.
