@@ -65,10 +65,10 @@ export function App() {
         </main>
       </div>
 
-      {/* Rodapé Acadêmico e Institucional */}
+      {/* Rodapé Institucional */}
       <footer className="py-4 px-6 bg-white dark:bg-dark-card/80 border-t border-gray-200 dark:border-dark-border text-center text-xs text-gray-500 dark:text-gray-400">
         <p>
-          <strong>Projeto Midas Wb</strong> &bull; Sistema Profissional de Planejamento Financeiro & Patrimônio (Simulado Acadêmico)
+          <strong>Projeto Midas Wb</strong> &bull; Sistema Profissional de Planejamento Financeiro & Patrimônio
         </p>
         <p className="mt-0.5 text-[11px] opacity-75">
           Desenvolvido com React, TypeScript, Vite, TailwindCSS, TanStack Table, ECharts & Dexie (IndexedDB Offline-First).
