@@ -87,15 +87,21 @@ O usuário pode alterar os preços de ativos como ETH e USDC de forma reativa no
 
 ---
 
-## 6. Guia de Instalação e Execução em Ambiente de Desenvolvimento
+## 6. Guia de Instalação e Execução
 
-Para rodar o projeto localmente em sua máquina para fins de desenvolvimento, modificação ou teste:
+Para rodar o projeto localmente em sua máquina, você tem duas opções:
 
 ### Pré-requisitos
-- **Node.js** (Versão 18 ou superior recomendada)
-- **NPM** (ou Yarn/Pnpm)
+- **Node.js** (Versão 18 ou superior recomendada instalada no Windows)
 
-### Passo a Passo
+### Método 1: Iniciador Automático (Recomendado / Mais Fácil)
+A maneira mais rápida de rodar a aplicação:
+1. Navegue até a pasta principal do projeto no seu computador.
+2. Dê **dois cliques** no arquivo `iniciar.bat`.
+3. Um terminal se abrirá sozinho. Ele irá instalar as dependências necessárias (se for a primeira vez) e, em seguida, **abrirá a aplicação automaticamente no seu navegador padrão**.
+
+### Método 2: Pelo Terminal (Para Desenvolvedores)
+Se preferir rodar manualmente por linha de comando:
 1. Abra o terminal na pasta raiz do projeto:
    ```bash
    cd "C:\Users\Jotta\Desktop\Projetos\Projetos IA\Projeto Midas Wb"
@@ -108,7 +114,7 @@ Para rodar o projeto localmente em sua máquina para fins de desenvolvimento, mo
    ```bash
    npm run dev
    ```
-4. Abra o navegador no endereço exibido (geralmente `http://localhost:5173`). O sistema populará automaticamente o banco com dados simulada de demonstração caso esteja rodando pela primeira vez!
+4. Abra o navegador no endereço exibido (geralmente `http://localhost:5173`). O sistema populará automaticamente o banco com dados simulados de demonstração caso esteja rodando pela primeira vez!
 
 ---
 

@@ -67,28 +67,61 @@ export const TransactionsView: React.FC = () => {
 
     const destAccId = data.destinationAccountId ? parseInt(data.destinationAccountId, 10) : undefined;
 
-    // 1. Criar transação
-    await db.transactions.add({
-      type: data.type as TransactionType,
-      accountId: accId,
-      destinationAccountId: destAccId,
-      amount: amountNum,
-      destinationAmount: destAccId ? amountNum : undefined, // Simplificado 1:1 na transferência nativa ou manual
-      category: data.category,
-      description: data.description,
-      date: data.date
-    });
+    // Checagem prévia de impacto nas caixinhas (Goals)
+    const orig = await db.accounts.get(accId);
+    if (!orig) return;
 
-    // 2. Atualizar saldo da conta origem e destino para simular contabilidade real
-    await db.transaction('rw', db.accounts, async () => {
-      const orig = await db.accounts.get(accId);
-      if (orig) {
-        if (data.type === 'income') {
-          await db.accounts.update(accId, { initialBalance: orig.initialBalance + amountNum });
-        } else if (data.type === 'expense' || data.type === 'transfer') {
-          await db.accounts.update(accId, { initialBalance: Math.max(0, orig.initialBalance - amountNum) });
+    let shortfall = 0;
+    const accountGoals = await db.goals.where('accountId').equals(accId).toArray();
+
+    if (data.type === 'expense' || data.type === 'transfer') {
+      const totalGoalsAmount = accountGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+      const newBalance = Math.max(0, orig.initialBalance - amountNum);
+
+      if (newBalance < totalGoalsAmount) {
+        shortfall = totalGoalsAmount - newBalance;
+        const msg = `ATENÇÃO: O saldo final da conta (${formatCurrency(newBalance, orig.currency, false)}) ficará menor que o total reservado em suas caixinhas vinculadas (${formatCurrency(totalGoalsAmount, orig.currency, false)}).\n\nIsso deduzirá automaticamente ${formatCurrency(shortfall, orig.currency, false)} das suas caixinhas para cobrir o déficit.\n\nDeseja continuar?`;
+        if (!window.confirm(msg)) {
+          return;
         }
       }
+    }
+
+    // Processamento atômico das tabelas envolvidas
+    await db.transaction('rw', [db.accounts, db.transactions, db.goals], async () => {
+      // 1. Criar transação no histórico
+      await db.transactions.add({
+        type: data.type as TransactionType,
+        accountId: accId,
+        destinationAccountId: destAccId,
+        amount: amountNum,
+        destinationAmount: destAccId ? amountNum : undefined,
+        category: data.category,
+        description: data.description,
+        date: data.date
+      });
+
+      // 2. Atualizar saldo da conta origem
+      if (data.type === 'income') {
+        await db.accounts.update(accId, { initialBalance: orig.initialBalance + amountNum });
+      } else if (data.type === 'expense' || data.type === 'transfer') {
+        await db.accounts.update(accId, { initialBalance: Math.max(0, orig.initialBalance - amountNum) });
+        
+        // 3. Deduzir o déficit das caixinhas de forma sequencial
+        if (shortfall > 0) {
+          let remainingShortfall = shortfall;
+          for (const goal of accountGoals) {
+            if (remainingShortfall <= 0) break;
+            if (goal.currentAmount > 0) {
+              const deduction = Math.min(goal.currentAmount, remainingShortfall);
+              await db.goals.update(goal.id!, { currentAmount: goal.currentAmount - deduction });
+              remainingShortfall -= deduction;
+            }
+          }
+        }
+      }
+
+      // 4. Atualizar saldo da conta de destino (se houver)
       if (data.type === 'transfer' && destAccId) {
         const dest = await db.accounts.get(destAccId);
         if (dest) {
