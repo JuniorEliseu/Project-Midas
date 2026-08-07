@@ -49,13 +49,27 @@ export const Dashboard: React.FC = () => {
     let goalsTotCrypto = 0;
     let goalsTotNonCrypto = 0;
     goals.forEach(goal => {
-      const acc = accounts.find(a => a.id === goal.accountId);
       const val = convertCurrency(goal.currentAmount, goal.currency, baseCurrency, quotes);
       goalsTot += val;
-      if (acc && acc.type === 'cripto') {
-        goalsTotCrypto += val;
+
+      if (goal.allocations && goal.allocations.length > 0) {
+        goal.allocations.forEach(alloc => {
+          const allocVal = convertCurrency(alloc.amount, goal.currency, baseCurrency, quotes);
+          const acc = accounts.find(a => a.id === alloc.accountId);
+          if (acc && acc.type === 'cripto') {
+            goalsTotCrypto += allocVal;
+          } else {
+            goalsTotNonCrypto += allocVal;
+          }
+        });
       } else {
-        goalsTotNonCrypto += val;
+        // Fallback legado
+        const acc = accounts.find(a => a.id === goal.accountId);
+        if (acc && acc.type === 'cripto') {
+          goalsTotCrypto += val;
+        } else {
+          goalsTotNonCrypto += val;
+        }
       }
     });
 

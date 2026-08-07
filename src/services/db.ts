@@ -159,6 +159,7 @@ export async function seedDatabase(): Promise<void> {
         currentAmount: 25000,
         currency: 'BRL',
         accountId: caixinhaId as number,
+        allocations: [{ accountId: caixinhaId as number, amount: 25000 }],
         deadline: '2026-12-31',
         color: '#10B981',
         icon: 'shield',
@@ -170,6 +171,7 @@ export async function seedDatabase(): Promise<void> {
         currentAmount: 12400,
         currency: 'BRL',
         accountId: nubankId as number,
+        allocations: [{ accountId: nubankId as number, amount: 12400 }],
         deadline: '2027-04-15',
         color: '#F43F5E',
         icon: 'plane',
@@ -181,6 +183,7 @@ export async function seedDatabase(): Promise<void> {
         currentAmount: 0.15,
         currency: 'BTC',
         accountId: ledgerId as number,
+        allocations: [{ accountId: ledgerId as number, amount: 0.15 }],
         deadline: '2028-12-31',
         color: '#F59E0B',
         icon: 'coins',
@@ -301,6 +304,21 @@ export async function seedDatabase(): Promise<void> {
   });
 }
 
+// Função para garantir retrocompatibilidade com caixinhas antigas sem array de alocações
+export async function migrateLegacyGoals(): Promise<void> {
+  const goals = await db.goals.toArray();
+  for (const goal of goals) {
+    if (!goal.allocations && goal.accountId) {
+      await db.goals.update(goal.id!, {
+        allocations: [{
+          accountId: goal.accountId,
+          amount: goal.currentAmount
+        }]
+      });
+    }
+  }
+}
+
 // Inicializa automaticamente com dados simulados caso o banco esteja zerado no primeiro acesso
 export async function autoInitIfEmpty(): Promise<void> {
   const hasInitialized = localStorage.getItem('midas_has_initialized_once');
@@ -312,4 +330,7 @@ export async function autoInitIfEmpty(): Promise<void> {
       localStorage.setItem('midas_has_initialized_once', 'true');
     }
   }
+
+  // Executa migração de dados legados sempre que inicializa o banco
+  await migrateLegacyGoals();
 }

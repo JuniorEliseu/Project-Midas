@@ -72,10 +72,21 @@ export const TransactionsView: React.FC = () => {
     if (!orig) return;
 
     let shortfall = 0;
-    const accountGoals = await db.goals.where('accountId').equals(accId).toArray();
+    const allGoals = await db.goals.toArray();
+    const accountGoals = allGoals.filter(g => 
+      (g.allocations && g.allocations.some(a => a.accountId === accId)) || 
+      (!g.allocations && g.accountId === accId)
+    );
 
     if (data.type === 'expense' || data.type === 'transfer') {
-      const totalGoalsAmount = accountGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+      const totalGoalsAmount = accountGoals.reduce((sum, g) => {
+        if (g.allocations) {
+           const alloc = g.allocations.find(a => a.accountId === accId);
+           return sum + (alloc ? alloc.amount : 0);
+        }
+        return sum + g.currentAmount;
+      }, 0);
+
       const newBalance = Math.max(0, orig.initialBalance - amountNum);
 
       if (newBalance < totalGoalsAmount) {
@@ -107,12 +118,29 @@ export const TransactionsView: React.FC = () => {
       } else if (data.type === 'expense' || data.type === 'transfer') {
         await db.accounts.update(accId, { initialBalance: Math.max(0, orig.initialBalance - amountNum) });
         
-        // 3. Deduzir o déficit das caixinhas de forma sequencial
+        // 3. Deduzir o déficit das caixinhas de forma sequencial (focado na alocação da conta)
         if (shortfall > 0) {
           let remainingShortfall = shortfall;
           for (const goal of accountGoals) {
             if (remainingShortfall <= 0) break;
-            if (goal.currentAmount > 0) {
+            
+            if (goal.allocations) {
+              const allocIndex = goal.allocations.findIndex(a => a.accountId === accId);
+              if (allocIndex !== -1) {
+                const alloc = goal.allocations[allocIndex];
+                if (alloc.amount > 0) {
+                  const deduction = Math.min(alloc.amount, remainingShortfall);
+                  goal.allocations[allocIndex].amount -= deduction;
+                  goal.currentAmount -= deduction;
+                  await db.goals.update(goal.id!, { 
+                    allocations: goal.allocations, 
+                    currentAmount: goal.currentAmount 
+                  });
+                  remainingShortfall -= deduction;
+                }
+              }
+            } else if (goal.currentAmount > 0) {
+              // Legado
               const deduction = Math.min(goal.currentAmount, remainingShortfall);
               await db.goals.update(goal.id!, { currentAmount: goal.currentAmount - deduction });
               remainingShortfall -= deduction;

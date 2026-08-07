@@ -28,9 +28,16 @@ type AccountFormValues = z.infer<typeof accountSchema>;
 export const AccountsView: React.FC = () => {
   const { baseCurrency, quotes, privacyMode } = useAppStore();
   const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
+  const goals = useLiveQuery(() => db.goals.toArray()) || [];
 
   const [filterType, setFilterType] = useState<string>('todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Estados para Delegação para Caixinha
+  const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
+  const [delegateAccountId, setDelegateAccountId] = useState<number | null>(null);
+  const [delegateGoalId, setDelegateGoalId] = useState<string>('');
+  const [delegateAmount, setDelegateAmount] = useState<string>('');
 
   // Conversor Multimodal Rápido
   const [calcAmount, setCalcAmount] = useState<string>('100');
@@ -81,6 +88,73 @@ export const AccountsView: React.FC = () => {
     if (window.confirm('Tem certeza que deseja remover esta conta do seu portfólio no IndexedDB?')) {
       await db.accounts.delete(id);
     }
+  };
+
+  const handleOpenDelegate = (accountId: number) => {
+    setDelegateAccountId(accountId);
+    setDelegateGoalId('');
+    setDelegateAmount('');
+    setIsDelegateModalOpen(true);
+  };
+
+  const handleDelegateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!delegateAccountId || !delegateGoalId || !delegateAmount) return;
+
+    const amountNum = parseFloat(delegateAmount.replace(',', '.'));
+    if (isNaN(amountNum) || amountNum <= 0) {
+      alert("Valor inválido");
+      return;
+    }
+
+    const account = await db.accounts.get(delegateAccountId);
+    if (!account) return;
+
+    // A validação do limite não pode exceder o saldo atual (initialBalance) - o que a conta JÁ DELEGOU nas outras caixinhas
+    // Calculando quanto esta conta já delegou globalmente:
+    const allGoals = await db.goals.toArray();
+    const totalDelegated = allGoals.reduce((sum, g) => {
+      if (g.allocations) {
+        const alloc = g.allocations.find(a => a.accountId === delegateAccountId);
+        return sum + (alloc ? alloc.amount : 0);
+      }
+      // legacy fallback
+      if (g.accountId === delegateAccountId) {
+         return sum + g.currentAmount;
+      }
+      return sum;
+    }, 0);
+
+    const availableBalance = account.initialBalance - totalDelegated;
+    if (amountNum > availableBalance) {
+      alert(`Você não pode delegar mais do que o saldo livre da conta.\nSaldo livre: ${formatCurrency(availableBalance, account.currency, false)}`);
+      return;
+    }
+
+    const goalId = parseInt(delegateGoalId, 10);
+    const goal = await db.goals.get(goalId);
+    if (!goal) return;
+
+    // Atualizar alocações da caixinha
+    let updatedAllocations = goal.allocations ? [...goal.allocations] : [];
+    if (!goal.allocations && goal.accountId && goal.currentAmount > 0) {
+      // Migrate se não estiver migrado
+      updatedAllocations = [{ accountId: goal.accountId, amount: goal.currentAmount }];
+    }
+
+    const allocIndex = updatedAllocations.findIndex(a => a.accountId === delegateAccountId);
+    if (allocIndex !== -1) {
+      updatedAllocations[allocIndex].amount += amountNum;
+    } else {
+      updatedAllocations.push({ accountId: delegateAccountId, amount: amountNum });
+    }
+
+    await db.goals.update(goalId, {
+      allocations: updatedAllocations,
+      currentAmount: goal.currentAmount + amountNum
+    });
+
+    setIsDelegateModalOpen(false);
   };
 
   const filteredAccounts = accounts.filter(a => filterType === 'todos' ? true : a.type === filterType);
@@ -203,6 +277,13 @@ export const AccountsView: React.FC = () => {
 
                 {/* Ações da Conta */}
                 <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-gray-200/40 dark:border-gray-800/50 opacity-90 sm:opacity-70 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleOpenDelegate(account.id!)}
+                    className="p-1.5 text-blue-500 hover:text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-1 text-xs font-semibold px-2"
+                    title="Delegar Saldo para uma Caixinha"
+                  >
+                    <Vault className="w-3.5 h-3.5" /> Delegar
+                  </button>
                   <button
                     onClick={() => handleDelete(account.id)}
                     className="p-1.5 text-gray-400 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors"
@@ -344,6 +425,42 @@ export const AccountsView: React.FC = () => {
             </Button>
             <Button type="submit" variant="primary" isLoading={isSubmitting}>
               Salvar no IndexedDB
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal de Delegação para Caixinha */}
+      <Modal
+        isOpen={isDelegateModalOpen}
+        onClose={() => setIsDelegateModalOpen(false)}
+        title="Delegar Valor para Caixinha"
+      >
+        <form onSubmit={handleDelegateSubmit} className="space-y-4">
+          <Select
+            label="Escolha a Caixinha (Objetivo)"
+            value={delegateGoalId}
+            onChange={(e) => setDelegateGoalId(e.target.value)}
+            options={[
+              { value: '', label: 'Selecione uma caixinha...' },
+              ...goals.map(g => ({ value: g.id!.toString(), label: g.title }))
+            ]}
+          />
+          <Input
+            label="Valor a Delegar"
+            placeholder="Ex: 500.00"
+            type="number"
+            step="any"
+            value={delegateAmount}
+            onChange={(e) => setDelegateAmount(e.target.value)}
+          />
+
+          <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-gray-200 dark:border-gray-800">
+            <Button type="button" variant="outline" onClick={() => setIsDelegateModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary">
+              Confirmar Delegação
             </Button>
           </div>
         </form>

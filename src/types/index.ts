@@ -28,13 +28,19 @@ export interface Transaction {
   goalId?: number;
 }
 
+export interface GoalAllocation {
+  accountId: number;
+  amount: number;
+}
+
 export interface Goal {
   id?: number;
   title: string;
   targetAmount: number;
   currentAmount: number;
   currency: Currency;
-  accountId?: number;
+  accountId?: number; // Legacy, mantido opcional
+  allocations?: GoalAllocation[]; // Novo sistema multi-contas
   deadline: string;
   color: string;
   icon?: string;

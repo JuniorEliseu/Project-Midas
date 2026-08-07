@@ -34,8 +34,10 @@ export const GoalsView: React.FC = () => {
   const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-  const [selectedGoalForAporte, setSelectedGoalForAporte] = useState<Goal | null>(null);
-  const [aporteAmount, setAporteAmount] = useState('');
+  const [selectedGoalForAction, setSelectedGoalForAction] = useState<Goal | null>(null);
+  const [actionType, setActionType] = useState<'aporte' | 'resgate' | null>(null);
+  const [actionAccountId, setActionAccountId] = useState<string>('');
+  const [actionAmount, setActionAmount] = useState('');
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<GoalFormValues>({
     resolver: zodResolver(goalSchema),
@@ -71,18 +73,68 @@ export const GoalsView: React.FC = () => {
     setIsNewModalOpen(false);
   };
 
-  const handleAddAporte = async () => {
-    if (!selectedGoalForAporte || !selectedGoalForAporte.id) return;
-    const val = parseFloat(aporteAmount.replace(',', '.'));
+  const handleGoalAction = async () => {
+    if (!selectedGoalForAction || !selectedGoalForAction.id || !actionAccountId) return;
+    const val = parseFloat(actionAmount.replace(',', '.'));
     if (isNaN(val) || val <= 0) {
-      alert('Digite um valor numérico válido para o aporte!');
+      alert('Digite um valor numérico válido!');
       return;
     }
-    await db.goals.update(selectedGoalForAporte.id, {
-      currentAmount: selectedGoalForAporte.currentAmount + val
-    });
-    setSelectedGoalForAporte(null);
-    setAporteAmount('');
+    const accId = parseInt(actionAccountId, 10);
+    const account = accounts.find(a => a.id === accId);
+    if (!account) return;
+
+    let updatedAllocations = selectedGoalForAction.allocations ? [...selectedGoalForAction.allocations] : [];
+    // Legado
+    if (!selectedGoalForAction.allocations && selectedGoalForAction.accountId && selectedGoalForAction.currentAmount > 0) {
+      updatedAllocations = [{ accountId: selectedGoalForAction.accountId, amount: selectedGoalForAction.currentAmount }];
+    }
+
+    const allocIndex = updatedAllocations.findIndex(a => a.accountId === accId);
+    const currentAllocAmount = allocIndex !== -1 ? updatedAllocations[allocIndex].amount : 0;
+
+    if (actionType === 'resgate') {
+      if (val > currentAllocAmount) {
+        alert(`Você não pode resgatar mais do que esta conta possui guardado nesta caixinha.\nSaldo disponível da conta aqui: ${formatCurrency(currentAllocAmount, selectedGoalForAction.currency, false)}`);
+        return;
+      }
+      updatedAllocations[allocIndex].amount -= val;
+      await db.goals.update(selectedGoalForAction.id, {
+        allocations: updatedAllocations,
+        currentAmount: selectedGoalForAction.currentAmount - val
+      });
+    } else {
+      // Aporte
+      const allGoals = await db.goals.toArray();
+      const totalDelegated = allGoals.reduce((sum, g) => {
+        if (g.allocations) {
+          const alloc = g.allocations.find(a => a.accountId === accId);
+          return sum + (alloc ? alloc.amount : 0);
+        }
+        if (g.accountId === accId) return sum + g.currentAmount;
+        return sum;
+      }, 0);
+      
+      const availableBalance = account.initialBalance - totalDelegated;
+      if (val > availableBalance) {
+        alert(`A conta selecionada não possui saldo livre suficiente.\nSaldo livre: ${formatCurrency(availableBalance, account.currency, false)}`);
+        return;
+      }
+      if (allocIndex !== -1) {
+        updatedAllocations[allocIndex].amount += val;
+      } else {
+        updatedAllocations.push({ accountId: accId, amount: val });
+      }
+      await db.goals.update(selectedGoalForAction.id, {
+        allocations: updatedAllocations,
+        currentAmount: selectedGoalForAction.currentAmount + val
+      });
+    }
+
+    setSelectedGoalForAction(null);
+    setActionType(null);
+    setActionAmount('');
+    setActionAccountId('');
   };
 
   const handleDelete = async (id?: number) => {
@@ -246,11 +298,27 @@ export const GoalsView: React.FC = () => {
                         ></div>
                       </div>
                     </div>
+
+                    {/* Origem dos Fundos (Alocações) */}
+                    <div className="pt-3 border-t border-gray-200/50 dark:border-gray-800/60 mt-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Origem dos Fundos</p>
+                      {goal.allocations && goal.allocations.length > 0 ? goal.allocations.filter(a => a.amount > 0).map(alloc => {
+                        const allocAcc = accounts.find(a => a.id === alloc.accountId);
+                        return (
+                          <div key={alloc.accountId} className="flex justify-between items-center text-xs text-gray-600 dark:text-gray-400 py-0.5">
+                            <span className="truncate">{allocAcc?.name || 'Conta Removida'}</span>
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{formatCurrency(alloc.amount, goal.currency, privacyMode)}</span>
+                          </div>
+                        );
+                      }) : (
+                        <p className="text-[11px] text-gray-400">Nenhum fundo alocado</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Controles do Cartão */}
-                <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-gray-200/40 dark:border-gray-800/50">
+                <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-gray-200/40 dark:border-gray-800/50">
                   <button
                     onClick={() => handleDelete(goal.id)}
                     className="p-1.5 text-gray-400 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors"
@@ -258,18 +326,32 @@ export const GoalsView: React.FC = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-xs"
-                    onClick={() => {
-                      setSelectedGoalForAporte(goal);
-                      setAporteAmount('');
-                    }}
-                    leftIcon={<ArrowUpRight className="w-4 h-4 text-emerald-500" />}
-                  >
-                    + Reservar / Aporte
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-[11px] px-2.5 py-1 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700"
+                      onClick={() => {
+                        setSelectedGoalForAction(goal);
+                        setActionType('resgate');
+                        setActionAmount('');
+                      }}
+                    >
+                      Resgatar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="text-[11px] px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 border-none text-white shadow-emerald-500/20"
+                      onClick={() => {
+                        setSelectedGoalForAction(goal);
+                        setActionType('aporte');
+                        setActionAmount('');
+                      }}
+                    >
+                      + Aportar
+                    </Button>
+                  </div>
                 </div>
               </Card>
             );
@@ -277,30 +359,44 @@ export const GoalsView: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para Adicionar Aporte na Caixinha */}
+      {/* Modal para Adicionar Aporte/Resgate na Caixinha */}
       <Modal
-        isOpen={!!selectedGoalForAporte}
-        onClose={() => setSelectedGoalForAporte(null)}
-        title={selectedGoalForAporte ? `Inserir Saldo na Caixinha: ${selectedGoalForAporte.title}` : 'Aporte'}
+        isOpen={!!selectedGoalForAction}
+        onClose={() => { setSelectedGoalForAction(null); setActionType(null); }}
+        title={selectedGoalForAction ? `${actionType === 'aporte' ? 'Aportar em' : 'Resgatar de'}: ${selectedGoalForAction.title}` : 'Ação'}
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Informe quanto de saldo você quer reservar adicionalmente neste objetivo ({selectedGoalForAporte?.currency}).
+            {actionType === 'aporte' 
+              ? `De qual conta você quer alocar fundos para esta caixinha (${selectedGoalForAction?.currency})?`
+              : `Para qual conta você quer devolver fundos resgatados desta caixinha?`}
           </p>
+
+          <Select
+            label="Conta"
+            value={actionAccountId}
+            onChange={(e) => setActionAccountId(e.target.value)}
+            options={[
+              { value: '', label: 'Selecione uma conta...' },
+              ...accounts.map(a => ({ value: a.id!.toString(), label: a.name }))
+            ]}
+          />
+
           <Input
-            label="Valor do Aporte"
+            label={`Valor do ${actionType === 'aporte' ? 'Aporte' : 'Resgate'}`}
             placeholder="Ex: 500.00"
             type="number"
             step="any"
-            value={aporteAmount}
-            onChange={(e) => setAporteAmount(e.target.value)}
+            value={actionAmount}
+            onChange={(e) => setActionAmount(e.target.value)}
           />
+
           <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200 dark:border-gray-800">
-            <Button variant="outline" onClick={() => setSelectedGoalForAporte(null)}>
+            <Button variant="outline" onClick={() => { setSelectedGoalForAction(null); setActionType(null); }}>
               Cancelar
             </Button>
-            <Button variant="primary" onClick={handleAddAporte}>
-              Confirmar Reserva
+            <Button variant="primary" onClick={handleGoalAction}>
+              Confirmar
             </Button>
           </div>
         </div>
