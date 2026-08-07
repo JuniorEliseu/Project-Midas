@@ -21,10 +21,16 @@ export const Dashboard: React.FC = () => {
   const goals = useLiveQuery(() => db.goals.toArray()) || [];
 
   // 1. Cálculos Patrimoniais Consolidados
-  const { totalNetWorth, accountsTotal, investmentsTotal, defiTotal, goalsTotal, changeEst24h } = useMemo(() => {
+  const { totalNetWorth, accountsTotal, investmentsTotal, defiTotal, goalsTotal, goalsTotCrypto, goalsTotNonCrypto, changeEst24h } = useMemo(() => {
     let accTotal = 0;
+    let cryptoAccountsTotal = 0;
     accounts.forEach(acc => {
-      accTotal += convertCurrency(acc.initialBalance, acc.currency, baseCurrency, quotes);
+      const val = convertCurrency(acc.initialBalance, acc.currency, baseCurrency, quotes);
+      if (acc.type === 'cripto') {
+        cryptoAccountsTotal += val;
+      } else {
+        accTotal += val;
+      }
     });
 
     let invTotal = 0;
@@ -33,15 +39,24 @@ export const Dashboard: React.FC = () => {
       invTotal += convertCurrency(val, inv.currency, baseCurrency, quotes);
     });
 
-    let defiTot = 0;
+    let defiTot = cryptoAccountsTotal;
     defiPools.forEach(pool => {
       // DeFi pools são valorizados primariamente em USD
       defiTot += convertCurrency(pool.stakedTotalValueUSD + pool.pendingRewardsUSD, 'USD', baseCurrency, quotes);
     });
 
     let goalsTot = 0;
+    let goalsTotCrypto = 0;
+    let goalsTotNonCrypto = 0;
     goals.forEach(goal => {
-      goalsTot += convertCurrency(goal.currentAmount, goal.currency, baseCurrency, quotes);
+      const acc = accounts.find(a => a.id === goal.accountId);
+      const val = convertCurrency(goal.currentAmount, goal.currency, baseCurrency, quotes);
+      goalsTot += val;
+      if (acc && acc.type === 'cripto') {
+        goalsTotCrypto += val;
+      } else {
+        goalsTotNonCrypto += val;
+      }
     });
 
     const total = accTotal + invTotal + defiTot;
@@ -56,6 +71,8 @@ export const Dashboard: React.FC = () => {
       investmentsTotal: invTotal,
       defiTotal: defiTot,
       goalsTotal: goalsTot,
+      goalsTotCrypto,
+      goalsTotNonCrypto,
       changeEst24h: avgChange || 1.85,
     };
   }, [accounts, investments, defiPools, goals, baseCurrency, quotes, quotesChange24h]);
@@ -105,15 +122,15 @@ export const Dashboard: React.FC = () => {
             }
           },
           data: [
-            { value: Number(Math.max(0, accountsTotal - goalsTotal).toFixed(2)), name: 'Contas & Liquida', itemStyle: { color: '#3B82F6' } },
+            { value: Number(Math.max(0, accountsTotal - goalsTotNonCrypto).toFixed(2)), name: 'Contas & Liquida', itemStyle: { color: '#3B82F6' } },
             { value: Number(investmentsTotal.toFixed(2)), name: 'Ações & Renda Fixa', itemStyle: { color: '#10B981' } },
-            { value: Number(defiTotal.toFixed(2)), name: 'DeFi & Pools Cripto', itemStyle: { color: '#8B5CF6' } },
+            { value: Number(Math.max(0, defiTotal - goalsTotCrypto).toFixed(2)), name: 'DeFi & Pools Cripto', itemStyle: { color: '#8B5CF6' } },
             { value: Number(goalsTotal.toFixed(2)), name: 'Caixinhas (Reserva)', itemStyle: { color: '#F59E0B' } },
           ]
         }
       ]
     };
-  }, [accountsTotal, investmentsTotal, defiTotal, goalsTotal, baseCurrency, theme]);
+  }, [accountsTotal, investmentsTotal, defiTotal, goalsTotal, goalsTotCrypto, goalsTotNonCrypto, baseCurrency, theme]);
 
   // 3. Evolução Temporal e Fluxo de Caixa Simulado (Gráfico de Barras e Linha)
   const evolutionChartOption = useMemo(() => {
