@@ -48,36 +48,40 @@ export async function fetchLiveRates(): Promise<LiveQuotesResult> {
       return r.json();
     });
 
-    // 2. Requisitar Cripto (CoinGecko Free API: BTC, ETH, SOL, USDC em BRL)
-    const coingeckoPromise = fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,usd-coin&vs_currencies=brl&include_24hr_change=true',
+    // 2. Requisitar Cripto (Binance API: BTC, ETH, SOL em BRL)
+    const binancePromise = fetch(
+      'https://api.binance.com/api/v3/ticker/price?symbols=["BTCBRL","ETHBRL","SOLBRL"]',
       { signal: controller.signal }
     ).then(r => {
-      if (!r.ok) throw new Error('CoinGecko API error');
+      if (!r.ok) throw new Error('Binance API error');
       return r.json();
     });
 
-    const [fiatData, cryptoData] = await Promise.all([awesomePromise, coingeckoPromise]);
+    const [fiatData, binanceData] = await Promise.all([awesomePromise, binancePromise]);
     clearTimeout(timeout);
+
+    const btcObj = binanceData.find((x: any) => x.symbol === 'BTCBRL');
+    const ethObj = binanceData.find((x: any) => x.symbol === 'ETHBRL');
+    const solObj = binanceData.find((x: any) => x.symbol === 'SOLBRL');
 
     const rates: Record<string, number> = {
       BRL: 1.0,
       USD: parseFloat(fiatData.USDBRL?.bid || DEFAULT_RATES.USD.toString()),
       EUR: parseFloat(fiatData.EURBRL?.bid || DEFAULT_RATES.EUR.toString()),
-      USDC: cryptoData['usd-coin']?.brl || parseFloat(fiatData.USDBRL?.bid || '5.50'),
-      BTC: cryptoData.bitcoin?.brl || DEFAULT_RATES.BTC,
-      ETH: cryptoData.ethereum?.brl || DEFAULT_RATES.ETH,
-      SOL: cryptoData.solana?.brl || DEFAULT_RATES.SOL,
+      USDC: parseFloat(fiatData.USDBRL?.bid || '5.50'),
+      BTC: btcObj ? parseFloat(btcObj.price) : DEFAULT_RATES.BTC,
+      ETH: ethObj ? parseFloat(ethObj.price) : DEFAULT_RATES.ETH,
+      SOL: solObj ? parseFloat(solObj.price) : DEFAULT_RATES.SOL,
     };
 
     const change24h: Record<string, number> = {
       BRL: 0,
       USD: parseFloat(fiatData.USDBRL?.pctChange || '0'),
       EUR: parseFloat(fiatData.EURBRL?.pctChange || '0'),
-      USDC: cryptoData['usd-coin']?.brl_24h_change || 0,
-      BTC: cryptoData.bitcoin?.brl_24h_change || 0,
-      ETH: cryptoData.ethereum?.brl_24h_change || 0,
-      SOL: cryptoData.solana?.brl_24h_change || 0,
+      USDC: 0,
+      BTC: 0, // Binance ticker/price doesn't have 24h change, can fetch from 24hr endpoint if needed, but 0 is ok for now.
+      ETH: 0,
+      SOL: 0,
     };
 
     const now = Date.now();

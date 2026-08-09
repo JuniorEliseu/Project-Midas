@@ -165,7 +165,35 @@ export const TransactionsView: React.FC = () => {
   const handleDelete = async (id?: number) => {
     if (!id) return;
     if (window.confirm('Tem certeza que deseja apagar esta transação do histórico no IndexedDB?')) {
-      await db.transactions.delete(id);
+      const tx = await db.transactions.get(id);
+      if (tx) {
+        await db.transaction('rw', [db.accounts, db.transactions], async () => {
+          await db.transactions.delete(id);
+          
+          // Estorno do saldo na conta de origem
+          const acc = await db.accounts.get(tx.accountId);
+          if (acc) {
+            let newBalance = acc.initialBalance;
+            if (tx.type === 'income') {
+              newBalance = Math.max(0, acc.initialBalance - tx.amount);
+            } else if (tx.type === 'expense' || tx.type === 'transfer') {
+              newBalance = acc.initialBalance + tx.amount;
+            }
+            await db.accounts.update(tx.accountId, { initialBalance: newBalance });
+          }
+
+          // Estorno do saldo na conta de destino (se for transferência)
+          if (tx.type === 'transfer' && tx.destinationAccountId) {
+            const destAcc = await db.accounts.get(tx.destinationAccountId);
+            if (destAcc) {
+              const amountToRevert = tx.destinationAmount || tx.amount;
+              await db.accounts.update(tx.destinationAccountId, { 
+                initialBalance: Math.max(0, destAcc.initialBalance - amountToRevert) 
+              });
+            }
+          }
+        });
+      }
     }
   };
 
