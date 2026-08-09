@@ -87,7 +87,8 @@ export const TransactionsView: React.FC = () => {
         return sum + g.currentAmount;
       }, 0);
 
-      const newBalance = Math.max(0, orig.initialBalance - amountNum);
+      // 2. Simulador de impacto no saldo origem (permitir saldo negativo)
+      const newBalance = orig.initialBalance - amountNum;
 
       if (newBalance < totalGoalsAmount) {
         shortfall = totalGoalsAmount - newBalance;
@@ -116,7 +117,7 @@ export const TransactionsView: React.FC = () => {
       if (data.type === 'income') {
         await db.accounts.update(accId, { initialBalance: orig.initialBalance + amountNum });
       } else if (data.type === 'expense' || data.type === 'transfer') {
-        await db.accounts.update(accId, { initialBalance: Math.max(0, orig.initialBalance - amountNum) });
+        await db.accounts.update(accId, { initialBalance: orig.initialBalance - amountNum });
         
         // 3. Deduzir o déficit das caixinhas de forma sequencial (focado na alocação da conta)
         if (shortfall > 0) {
@@ -175,7 +176,7 @@ export const TransactionsView: React.FC = () => {
           if (acc) {
             let newBalance = acc.initialBalance;
             if (tx.type === 'income') {
-              newBalance = Math.max(0, acc.initialBalance - tx.amount);
+              newBalance = acc.initialBalance - tx.amount;
             } else if (tx.type === 'expense' || tx.type === 'transfer') {
               newBalance = acc.initialBalance + tx.amount;
             }
@@ -188,7 +189,7 @@ export const TransactionsView: React.FC = () => {
             if (destAcc) {
               const amountToRevert = tx.destinationAmount || tx.amount;
               await db.accounts.update(tx.destinationAccountId, { 
-                initialBalance: Math.max(0, destAcc.initialBalance - amountToRevert) 
+                initialBalance: destAcc.initialBalance - amountToRevert 
               });
             }
           }
