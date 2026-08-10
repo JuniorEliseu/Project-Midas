@@ -105,13 +105,15 @@ export const GoalsView: React.FC = () => {
       });
     } else {
       // Aporte
-      const allGoals = await db.goals.toArray();
-      const totalDelegated = allGoals.reduce((sum, g) => {
+      const totalDelegated = goals.reduce((sum, g) => {
         if (g.allocations) {
           const alloc = g.allocations.find(a => a.accountId === accId);
-          return sum + (alloc ? alloc.amount : 0);
+          if (alloc) {
+            return sum + convertCurrency(alloc.amount, g.currency, account.currency, quotes);
+          }
+        } else if (g.accountId === accId) {
+          return sum + convertCurrency(g.currentAmount, g.currency, account.currency, quotes);
         }
-        if (g.accountId === accId) return sum + g.currentAmount;
         return sum;
       }, 0);
       

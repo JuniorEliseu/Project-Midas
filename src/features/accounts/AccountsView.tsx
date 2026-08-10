@@ -232,6 +232,24 @@ export const AccountsView: React.FC = () => {
             const convertedVal = convertCurrency(account.initialBalance, account.currency, baseCurrency, quotes);
             const isDifferentCurr = account.currency !== baseCurrency;
 
+            // Calcular Saldo Delegado e Livre (em Moeda Nativa da Conta)
+            const totalDelegatedNative = goals.reduce((sum, goal) => {
+              if (goal.allocations) {
+                const alloc = goal.allocations.find(a => a.accountId === account.id);
+                if (alloc) {
+                  // A alocação foi guardada na moeda da caixinha (goal.currency).
+                  // Precisamos converter de volta para a moeda da conta.
+                  return sum + convertCurrency(alloc.amount, goal.currency, account.currency, quotes);
+                }
+              } else if (goal.accountId === account.id) {
+                return sum + convertCurrency(goal.currentAmount, goal.currency, account.currency, quotes);
+              }
+              return sum;
+            }, 0);
+
+            const freeBalanceNative = Math.max(0, account.initialBalance - totalDelegatedNative);
+            const hasDelegation = totalDelegatedNative > 0;
+
             return (
               <Card
                 key={account.id}
@@ -260,17 +278,41 @@ export const AccountsView: React.FC = () => {
                   </div>
 
                   {/* Exibição de Saldo */}
-                  <div className="mt-4 p-4 rounded-xl bg-gray-50/70 dark:bg-gray-900/50 border border-gray-200/50 dark:border-gray-800/70">
-                    <p className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 mb-1">
-                      Saldo Atual (Nativo)
-                    </p>
-                    <p className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 font-mono">
-                      {formatCurrency(account.initialBalance, account.currency, privacyMode)}
-                    </p>
-                    {isDifferentCurr && (
-                      <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1">
-                        ≈ {formatCurrency(convertedVal, baseCurrency, privacyMode)} (em {baseCurrency})
+                  <div className="mt-4 space-y-2">
+                    <div className="p-3 rounded-xl bg-gray-50/70 dark:bg-gray-900/50 border border-gray-200/50 dark:border-gray-800/70">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-1 flex justify-between">
+                        <span>Saldo Total</span>
+                        {hasDelegation && <span className="text-blue-500">Com Delegações</span>}
                       </p>
+                      <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 font-mono">
+                        {formatCurrency(account.initialBalance, account.currency, privacyMode)}
+                      </p>
+                      {isDifferentCurr && (
+                        <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 mt-1">
+                          ≈ {formatCurrency(convertedVal, baseCurrency, privacyMode)}
+                        </p>
+                      )}
+                    </div>
+
+                    {hasDelegation && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/30">
+                          <p className="text-[9px] uppercase tracking-wider font-bold text-amber-600 dark:text-amber-500 mb-1">
+                            Reservado (Caixinha)
+                          </p>
+                          <p className="text-sm font-bold text-amber-700 dark:text-amber-400 font-mono">
+                            {formatCurrency(totalDelegatedNative, account.currency, privacyMode)}
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-700/30">
+                          <p className="text-[9px] uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-500 mb-1">
+                            Livre p/ Uso
+                          </p>
+                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                            {formatCurrency(freeBalanceNative, account.currency, privacyMode)}
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
