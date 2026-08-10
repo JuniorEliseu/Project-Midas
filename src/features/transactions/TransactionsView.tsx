@@ -4,6 +4,7 @@ import { db } from '@/services/db';
 import { useAppStore } from '@/store/useAppStore';
 import type { Transaction, TransactionType } from '@/types';
 import { formatCurrency, formatDate } from '@/utils/formatters';
+import { convertCurrency } from '@/services/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
@@ -29,6 +30,7 @@ const transactionSchema = z.object({
   accountId: z.string().min(1, 'Selecione uma conta de origem'),
   destinationAccountId: z.string().optional(),
   amount: z.string().min(1, 'Informe um valor'),
+  destinationAmount: z.string().optional(),
   category: z.string().min(2, 'Informe ou selecione a categoria'),
   description: z.string().min(3, 'A descrição deve ter ao menos 3 letras'),
   date: z.string().min(1, 'Informe a data')
@@ -37,7 +39,7 @@ const transactionSchema = z.object({
 type TxFormValues = z.infer<typeof transactionSchema>;
 
 export const TransactionsView: React.FC = () => {
-  const { privacyMode } = useAppStore();
+  const { privacyMode, quotes } = useAppStore();
   const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
   const transactions = useLiveQuery(() => db.transactions.orderBy('date').reverse().toArray()) || [];
 
@@ -45,13 +47,14 @@ export const TransactionsView: React.FC = () => {
   const [globalFilter, setGlobalFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<TxFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors, isSubmitting } } = useForm<TxFormValues>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       type: 'expense',
       accountId: '',
       destinationAccountId: '',
       amount: '',
+      destinationAmount: '',
       category: 'Mercado',
       description: '',
       date: new Date().toISOString().split('T')[0]
@@ -59,6 +62,14 @@ export const TransactionsView: React.FC = () => {
   });
 
   const selectedType = useWatch({ control, name: 'type' });
+  const selectedAccountId = useWatch({ control, name: 'accountId' });
+  const selectedDestId = useWatch({ control, name: 'destinationAccountId' });
+  const enteredAmount = useWatch({ control, name: 'amount' });
+
+  const sourceAccount = accounts.find(a => a.id === parseInt(selectedAccountId || '0'));
+  const destAccount = accounts.find(a => a.id === parseInt(selectedDestId || '0'));
+
+  const needsConversion = selectedType === 'transfer' && sourceAccount && destAccount && sourceAccount.currency !== destAccount.currency;
 
   const onSubmit = async (data: TxFormValues) => {
     const accId = parseInt(data.accountId, 10);
@@ -102,12 +113,14 @@ export const TransactionsView: React.FC = () => {
     // Processamento atômico das tabelas envolvidas
     await db.transaction('rw', [db.accounts, db.transactions, db.goals], async () => {
       // 1. Criar transação no histórico
+      const destAmountParsed = data.destinationAmount ? parseFloat(data.destinationAmount.replace(',', '.')) : amountNum;
+      
       await db.transactions.add({
         type: data.type as TransactionType,
         accountId: accId,
         destinationAccountId: destAccId,
         amount: amountNum,
-        destinationAmount: destAccId ? amountNum : undefined,
+        destinationAmount: destAccId ? destAmountParsed : undefined,
         category: data.category,
         description: data.description,
         date: data.date
@@ -154,7 +167,8 @@ export const TransactionsView: React.FC = () => {
       if (data.type === 'transfer' && destAccId) {
         const dest = await db.accounts.get(destAccId);
         if (dest) {
-          await db.accounts.update(destAccId, { initialBalance: dest.initialBalance + amountNum });
+          const destAmountParsed = data.destinationAmount ? parseFloat(data.destinationAmount.replace(',', '.')) : amountNum;
+          await db.accounts.update(destAccId, { initialBalance: dest.initialBalance + destAmountParsed });
         }
       }
     });
@@ -506,20 +520,56 @@ export const TransactionsView: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Valor"
+              label={needsConversion ? `Valor (em ${sourceAccount?.currency})` : "Valor"}
               placeholder="Ex: 150.00"
               type="number"
               step="any"
               {...register('amount')}
               error={errors.amount?.message}
             />
-            <Input
-              label="Data"
-              type="date"
-              {...register('date')}
-              error={errors.date?.message}
-            />
+            {needsConversion ? (
+              <Input
+                label={`Valor Recebido (em ${destAccount?.currency})`}
+                placeholder="Valor após conversão/taxas"
+                type="number"
+                step="any"
+                {...register('destinationAmount')}
+                error={errors.destinationAmount?.message}
+                rightIcon={
+                  <button 
+                    type="button"
+                    title="Calcular cotação atual"
+                    className="p-1 hover:bg-gray-100 rounded text-brand-primary"
+                    onClick={() => {
+                      if (!enteredAmount || isNaN(Number(enteredAmount))) return;
+                      const converted = convertCurrency(Number(enteredAmount), sourceAccount.currency, destAccount.currency, quotes);
+                      setValue('destinationAmount', converted.toFixed(6).replace(/\.?0+$/, ''));
+                    }}
+                  >
+                    <ArrowLeftRight className="w-4 h-4" />
+                  </button>
+                }
+              />
+            ) : (
+              <Input
+                label="Data"
+                type="date"
+                {...register('date')}
+                error={errors.date?.message}
+              />
+            )}
           </div>
+          
+          {needsConversion && (
+            <div className="grid grid-cols-1">
+              <Input
+                label="Data"
+                type="date"
+                {...register('date')}
+                error={errors.date?.message}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Input

@@ -71,7 +71,7 @@ export const AccountsView: React.FC = () => {
     if (parsedBalance > 0) {
       await db.transactions.add({
         type: 'income',
-        accountId: newAccountId,
+        accountId: Number(newAccountId),
         amount: parsedBalance,
         category: 'Saldo Inicial',
         description: 'Abertura de Conta',
