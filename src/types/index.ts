@@ -59,6 +59,7 @@ export interface Investment {
   currency: Currency;
   yieldPercentage?: number;
   accountId?: number;
+  purchaseDate?: string;
 }
 
 export interface DeFiPool {

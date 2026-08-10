@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/useAppStore';
 import type { InvestmentType, Currency } from '@/types';
 import { convertCurrency } from '@/services/api';
 import { formatCurrency, formatPercentage } from '@/utils/formatters';
-import { calculateImpermanentLoss } from '@/utils/calculators';
+import { calculateImpermanentLoss, getDaysBetween, getIRRate, getIOFRate } from '@/utils/calculators';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
@@ -24,7 +24,8 @@ const investmentSchema = z.object({
   purchasePrice: z.string().min(1, 'Informe o preço médio de compra'),
   currentPrice: z.string().min(1, 'Informe o preço atual'),
   currency: z.enum(['BRL', 'USD', 'USDC', 'EUR', 'BTC', 'ETH', 'SOL']),
-  yieldPercentage: z.string().optional()
+  yieldPercentage: z.string().optional(),
+  purchaseDate: z.string().optional()
 });
 
 const defiPoolSchema = z.object({
@@ -93,7 +94,8 @@ export const InvestmentsView: React.FC = () => {
       purchasePrice: '',
       currentPrice: '',
       currency: 'BRL',
-      yieldPercentage: '10.5'
+      yieldPercentage: '10.5',
+      purchaseDate: new Date().toISOString().split('T')[0]
     }
   });
 
@@ -117,6 +119,7 @@ export const InvestmentsView: React.FC = () => {
       currentPrice: isNaN(curr) ? 0 : curr,
       currency: data.currency as Currency,
       yieldPercentage: isNaN(yld) ? 0 : yld,
+      purchaseDate: data.purchaseDate
     });
 
     const totalValue = (isNaN(qty) ? 1 : qty) * (isNaN(purch) ? 0 : purch);
@@ -554,12 +557,38 @@ export const InvestmentsView: React.FC = () => {
 
                     return (
                       <tr key={inv.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                        <td className="py-3.5 pr-4 font-bold text-gray-900 dark:text-white">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 font-mono text-xs text-blue-500">
-                              {inv.ticker}
-                            </span>
-                            <span>{inv.name}</span>
+                        <td className="py-3.5 pr-4">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
+                              <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 font-mono text-xs text-blue-500">
+                                {inv.ticker}
+                              </span>
+                              <span>{inv.name}</span>
+                            </div>
+                            {inv.purchaseDate && (inv.type === 'renda_fixa' || inv.type === 'fundo') && (() => {
+                              const days = getDaysBetween(inv.purchaseDate);
+                              const ir = getIRRate(days);
+                              const iof = getIOFRate(days);
+                              
+                              // Gamificação de Cores do IR
+                              const irColor = ir === 22.5 ? 'bg-rose-100 text-rose-600 border-rose-200' 
+                                            : ir === 20.0 ? 'bg-orange-100 text-orange-600 border-orange-200'
+                                            : ir === 17.5 ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
+                                            : 'bg-emerald-100 text-emerald-600 border-emerald-200';
+
+                              return (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${irColor}`} title={`IR Regressivo: ${ir}% após ${days} dias`}>
+                                    IR {ir}%
+                                  </span>
+                                  {iof > 0 && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-rose-100 text-rose-600 border-rose-200" title={`IOF Regressivo: ${iof}% no ${days}º dia`}>
+                                      IOF {iof}%
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="py-3.5 pr-4">
@@ -832,7 +861,10 @@ export const InvestmentsView: React.FC = () => {
             <Input label="Preço Compra ($/R$)" type="number" step="any" placeholder="32.50" {...regInv('purchasePrice')} error={errInv.purchasePrice?.message} />
             <Input label="Preço Atual ($/R$)" type="number" step="any" placeholder="39.80" {...regInv('currentPrice')} error={errInv.currentPrice?.message} />
           </div>
-          <Input label="Yield / Dividend Yield Estimado (%)" type="number" step="any" placeholder="Ex: 12.5" {...regInv('yieldPercentage')} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Yield / Dividend Yield Estimado (%)" type="number" step="any" placeholder="Ex: 12.5" {...regInv('yieldPercentage')} />
+            <Input label="Data da Compra" type="date" {...regInv('purchaseDate')} error={errInv.purchaseDate?.message} />
+          </div>
           
           <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-gray-200 dark:border-gray-800">
             <Button type="button" variant="outline" onClick={() => setIsModalInvOpen(false)}>Cancelar</Button>

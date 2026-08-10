@@ -44,37 +44,28 @@ export function calculateCompoundInterest(
 
 export interface ImpermanentLossResult {
   priceRatioP: number;
-  impermanentLossPercentage: number; // Porcentagem de perda em relação a segurar na carteira (HODL)
-  hodlValueUSD: number; // Valor se apenas segurasse na carteira
-  poolValueUSD: number; // Valor no pool de liquidez
+  impermanentLossPercentage: number;
+  hodlValueUSD: number;
+  poolValueUSD: number;
   lossInUSD: number;
 }
 
-/**
- * Simulador Matemático de Impermanent Loss em Pools de Liquidez Automáticos (AMM - Constant Product x * y = k)
- * A fórmula de IL em relação à variação do preço do Token A vs Token B (Razão P) é:
- * IL = (2 * sqrt(P) / (1 + P)) - 1
- */
 export function calculateImpermanentLoss(
   initialTokenAPhysical: number,
   initialTokenBPhysical: number,
-  initialPriceA: number, // USD
-  initialPriceB: number, // USD
-  newPriceA: number, // USD
-  newPriceB: number  // USD
+  initialPriceA: number,
+  initialPriceB: number,
+  newPriceA: number,
+  newPriceB: number
 ): ImpermanentLossResult {
   const initialRatio = initialPriceA / (initialPriceB || 1);
   const newRatio = newPriceA / (newPriceB || 1);
   const P = newRatio / (initialRatio || 1);
 
-  // Fórmula de Impermanent Loss
-  const ilFactor = (2 * Math.sqrt(P)) / (1 + P) - 1; // Valor negativo, ex: -0.057 para 5.7% de perda
+  const ilFactor = (2 * Math.sqrt(P)) / (1 + P) - 1;
   const impermanentLossPercentage = Math.abs(ilFactor * 100);
 
-  // Valor HODL (Se tivesse mantido fora do pool de liquidez, na carteira física)
   const hodlValueUSD = initialTokenAPhysical * newPriceA + initialTokenBPhysical * newPriceB;
-  
-  // Valor real no Pool após rebalanceamento algorítmico do AMM
   const poolValueUSD = hodlValueUSD * (1 + ilFactor);
   const lossInUSD = hodlValueUSD - poolValueUSD;
 
@@ -85,4 +76,28 @@ export function calculateImpermanentLoss(
     poolValueUSD: Number(poolValueUSD.toFixed(2)),
     lossInUSD: Number(Math.max(0, lossInUSD).toFixed(2))
   };
+}
+
+export function getDaysBetween(startDateStr: string): number {
+  const start = new Date(startDateStr);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - start.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+export function getIRRate(days: number): number {
+  if (days <= 180) return 22.5;
+  if (days <= 360) return 20.0;
+  if (days <= 720) return 17.5;
+  return 15.0;
+}
+
+export function getIOFRate(days: number): number {
+  if (days >= 30) return 0;
+  const iofTable = [
+    96, 93, 90, 86, 83, 80, 76, 73, 70, 66,
+    63, 60, 56, 53, 50, 46, 43, 40, 36, 33,
+    30, 26, 23, 20, 16, 13, 10, 6, 3, 0
+  ];
+  return iofTable[days] || 0;
 }
