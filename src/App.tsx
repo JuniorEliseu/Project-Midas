@@ -1,6 +1,6 @@
 import React, { useEffect, Suspense } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { autoInitIfEmpty } from '@/services/db';
+import { autoInitIfEmpty, processFixedExpenses } from '@/services/db';
 import { Header } from '@/components/common/Header';
 import { Sidebar } from '@/components/common/Sidebar';
 import { Dashboard } from '@/features/dashboard/Dashboard';
@@ -8,6 +8,7 @@ import { AccountsView } from '@/features/accounts/AccountsView';
 import { TransactionsView } from '@/features/transactions/TransactionsView';
 import { GoalsView } from '@/features/goals/GoalsView';
 import { InvestmentsView } from '@/features/investments/InvestmentsView';
+import { FixedExpensesView } from '@/features/fixedExpenses/FixedExpensesView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { Loader2 } from 'lucide-react';
 
@@ -18,8 +19,16 @@ export function App() {
     // 1. Inicializa o tema escuro/claro salvo no localStorage
     initTheme();
 
-    // 2. Garante que se o IndexedDB estiver absolutamente zerado, auto-injeta o Seed Demo de demonstração
-    autoInitIfEmpty().catch(err => console.error('Erro ao verificar auto-init IndexedDB:', err));
+    // 2. Inicializa dados e processa despesas fixas
+    const initApp = async () => {
+      try {
+        await autoInitIfEmpty();
+        await processFixedExpenses();
+      } catch (err) {
+        console.error('Falha ao inicializar banco de dados:', err);
+      }
+    };
+    initApp();
 
     // 3. Requisita as cotações das APIs gratuitas (com fallback gracioso em cache se offline)
     refreshRates();
@@ -37,6 +46,8 @@ export function App() {
         return <GoalsView />;
       case 'investments':
         return <InvestmentsView />;
+      case 'fixed_expenses':
+        return <FixedExpensesView />;
       case 'settings':
         return <SettingsView />;
       default:

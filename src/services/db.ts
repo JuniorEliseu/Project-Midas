@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Account, Transaction, Goal, Investment, DeFiPool, RatesCache } from '@/types';
+import type { Account, Transaction, Goal, Investment, DeFiPool, RatesCache, FixedExpense } from '@/types';
 
 export class MidasDatabase extends Dexie {
   accounts!: EntityTable<Account, 'id'>;
@@ -8,6 +8,7 @@ export class MidasDatabase extends Dexie {
   investments!: EntityTable<Investment, 'id'>;
   defiPools!: EntityTable<DeFiPool, 'id'>;
   ratesCache!: EntityTable<RatesCache, 'id'>;
+  fixedExpenses!: EntityTable<FixedExpense, 'id'>;
 
   constructor() {
     super('MidasWbDB');
@@ -20,13 +21,17 @@ export class MidasDatabase extends Dexie {
       defiPools: '++id, protocol, pair',
       ratesCache: 'id'
     });
+
+    this.version(2).stores({
+      fixedExpenses: '++id, accountId, name, isRecurring'
+    });
   }
 }
 
 export const db = new MidasDatabase();
 
 export async function seedDatabase(): Promise<void> {
-  await db.transaction('rw', [db.accounts, db.transactions, db.goals, db.investments, db.defiPools, db.ratesCache], async () => {
+  await db.transaction('rw', [db.accounts, db.transactions, db.goals, db.investments, db.defiPools, db.ratesCache, db.fixedExpenses], async () => {
     // Limpar tabelas caso existam para re-popular
     await db.accounts.clear();
     await db.transactions.clear();
@@ -34,6 +39,7 @@ export async function seedDatabase(): Promise<void> {
     await db.investments.clear();
     await db.defiPools.clear();
     await db.ratesCache.clear();
+    await db.fixedExpenses.clear();
 
     const now = new Date().toISOString();
 
@@ -334,3 +340,83 @@ export async function autoInitIfEmpty(): Promise<void> {
   // Executa migração de dados legados sempre que inicializa o banco
   await migrateLegacyGoals();
 }
+
+// Helper para iterar os meses
+function getNextMonthStr(monthStr: string): string {
+  const [y, m] = monthStr.split('-').map(Number);
+  if (m === 12) return `${y + 1}-01`;
+  return `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+// Verifica se há despesas fixas para cobrar no mês atual (ou em retroativo se ficou sem abrir)
+export async function processFixedExpenses(): Promise<void> {
+  const expenses = await db.fixedExpenses.toArray();
+  const currentDate = new Date();
+  const currentMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+  if (expenses.length === 0) return;
+
+  await db.transaction('rw', [db.fixedExpenses, db.transactions, db.accounts], async () => {
+    for (const exp of expenses) {
+      const startDateObj = new Date(exp.startDate);
+      const startMonthStr = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Se lastProcessedMonth não existe, iniciamos UM MÊS ANTES do startMonthStr
+      // Para que o startMonthStr seja processado dentro do loop.
+      let currentIterMonth = exp.lastProcessedMonth 
+        ? getNextMonthStr(exp.lastProcessedMonth) 
+        : startMonthStr;
+
+      const endMonthStr = exp.endDate 
+        ? `${new Date(exp.endDate).getFullYear()}-${String(new Date(exp.endDate).getMonth() + 1).padStart(2, '0')}`
+        : '9999-12'; // Futuro distante para recorrentes
+
+      const acc = await db.accounts.get(exp.accountId);
+      if (!acc) continue;
+
+      let totalAmountToDeduct = 0;
+      let lastProcessedInLoop = exp.lastProcessedMonth;
+
+      while (currentIterMonth <= currentMonthStr && currentIterMonth <= endMonthStr) {
+        // Criar transação para este mês
+        const txDate = `${currentIterMonth}-01`; // Dia 1 do mês para fins históricos
+        
+        // Verifica se JÁ EXISTE uma transação para esta despesa fixa neste mês exato
+        const existingTxs = await db.transactions
+          .filter(t => t.fixedExpenseId === exp.id && t.date.startsWith(currentIterMonth))
+          .toArray();
+
+        if (existingTxs.length === 0) {
+          await db.transactions.add({
+            type: 'expense',
+            accountId: exp.accountId,
+            amount: exp.amount,
+            category: exp.category || 'Gasto Fixo',
+            description: `${exp.name} (Ref: ${currentIterMonth})`,
+            date: txDate,
+            fixedExpenseId: exp.id
+          });
+
+          totalAmountToDeduct += exp.amount;
+        }
+        
+        lastProcessedInLoop = currentIterMonth;
+        
+        currentIterMonth = getNextMonthStr(currentIterMonth);
+      }
+
+      if (totalAmountToDeduct > 0) {
+        // Atualiza a conta
+        await db.accounts.update(exp.accountId, {
+          initialBalance: acc.initialBalance - totalAmountToDeduct
+        });
+
+        // Atualiza a data processada
+        await db.fixedExpenses.update(exp.id!, {
+          lastProcessedMonth: lastProcessedInLoop
+        });
+      }
+    }
+  });
+}
+

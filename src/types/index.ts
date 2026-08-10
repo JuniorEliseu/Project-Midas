@@ -26,6 +26,7 @@ export interface Transaction {
   description: string;
   date: string;
   goalId?: number;
+  fixedExpenseId?: number;
 }
 
 export interface GoalAllocation {
@@ -89,6 +90,18 @@ export interface RatesCache {
   isOfflineFallback?: boolean;
 }
 
+export interface FixedExpense {
+  id?: number;
+  name: string;
+  amount: number;
+  accountId: number;
+  category: string;
+  isRecurring: boolean;
+  startDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  lastProcessedMonth?: string; // YYYY-MM
+}
+
 export interface BackupPayload {
   version: string;
   createdAt: string;
@@ -97,6 +110,7 @@ export interface BackupPayload {
   goals: Goal[];
   investments: Investment[];
   defiPools: DeFiPool[];
+  fixedExpenses?: FixedExpense[];
 }
 
 export interface Category {

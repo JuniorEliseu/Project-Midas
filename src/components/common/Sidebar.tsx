@@ -1,6 +1,6 @@
 import { db } from '@/services/db';
 import { useAppStore, type ActiveTab } from '@/store/useAppStore';
-import { LayoutDashboard, Wallet, ArrowLeftRight, Vault, TrendingUp, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowLeftRight, Vault, TrendingUp, ShieldCheck, Sparkles, Trash2, Calendar } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const { activeTab, setActiveTab } = useAppStore();
@@ -11,6 +11,7 @@ export const Sidebar: React.FC = () => {
     { id: 'transactions', label: 'Registros & Lançamentos', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { id: 'goals', label: 'Caixinhas (Objetivos)', icon: <Vault className="w-5 h-5" /> },
     { id: 'investments', label: 'Investimentos & DeFi', icon: <TrendingUp className="w-5 h-5" />, badge: 'DeFi Pro' },
+    { id: 'fixed_expenses', label: 'Gastos Fixos', icon: <Calendar className="w-5 h-5" /> },
     { id: 'settings', label: 'Segurança & Backup', icon: <ShieldCheck className="w-5 h-5" /> },
   ];
 

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { BaseCurrency } from '@/types';
 import { fetchLiveRates } from '@/services/api';
 
-export type ActiveTab = 'dashboard' | 'accounts' | 'transactions' | 'goals' | 'investments' | 'settings';
+export type ActiveTab = 'dashboard' | 'accounts' | 'transactions' | 'goals' | 'investments' | 'settings' | 'fixed_expenses';
 export type ThemeMode = 'dark' | 'light';
 
 interface AppState {
