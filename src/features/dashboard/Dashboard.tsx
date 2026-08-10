@@ -153,11 +153,11 @@ export const Dashboard: React.FC = () => {
     const splitLineColor = isDark ? '#1F2937' : '#E5E7EB';
 
     const months: string[] = [];
-    const monthlyNetFlow: number[] = [0, 0, 0, 0, 0, 0];
+    const monthlyNetFlow: number[] = new Array(12).fill(0);
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
     const now = new Date();
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push(monthNames[d.getMonth()]);
     }
@@ -165,8 +165,8 @@ export const Dashboard: React.FC = () => {
     allTransactions.forEach(tx => {
       const txDate = new Date(tx.date);
       const diffMonths = (now.getFullYear() - txDate.getFullYear()) * 12 + now.getMonth() - txDate.getMonth();
-      if (diffMonths >= 0 && diffMonths <= 5) {
-        const index = 5 - diffMonths;
+      if (diffMonths >= 0 && diffMonths <= 11) {
+        const index = 11 - diffMonths;
         const acc = accounts.find(a => a.id === tx.accountId);
         const curr = acc ? acc.currency : 'BRL';
         const baseAmount = convertCurrency(tx.amount, curr, baseCurrency, quotes);
@@ -179,10 +179,10 @@ export const Dashboard: React.FC = () => {
       }
     });
 
-    const growthData: number[] = new Array(6).fill(0);
+    const growthData: number[] = new Array(12).fill(0);
     let currentWorthForCalc = totalNetWorth;
     
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       growthData[i] = currentWorthForCalc;
       currentWorthForCalc -= monthlyNetFlow[i];
     }
@@ -238,9 +238,14 @@ export const Dashboard: React.FC = () => {
         {
           name: 'Aporte Mensal (Fluxo)',
           type: 'bar',
-          barWidth: 16,
-          itemStyle: { color: '#10B981', borderRadius: [4, 4, 0, 0] },
-          data: monthlyNetFlow.map(v => Number(v.toFixed(2)))
+          barWidth: 12, // Um pouco mais fina para acomodar 12 barras
+          data: monthlyNetFlow.map(v => ({
+            value: Number(v.toFixed(2)),
+            itemStyle: {
+              color: v < 0 ? '#EF4444' : '#10B981', // Vermelho se negativo, verde se positivo
+              borderRadius: v < 0 ? [0, 0, 4, 4] : [4, 4, 0, 0] // Arredonda a ponta na direção correta
+            }
+          }))
         }
       ]
     };
