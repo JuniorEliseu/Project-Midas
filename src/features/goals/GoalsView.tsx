@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Vault, Plus, Trophy, Trash2, Calendar, Target, ArrowUpRight, ShieldCheck, Plane, Coins } from 'lucide-react';
+import { Vault, Plus, Trophy, Trash2, Calendar, Target, ArrowUpRight, ShieldCheck, Plane, Coins, Pencil } from 'lucide-react';
 
 const goalSchema = z.object({
   title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres'),
@@ -38,6 +38,9 @@ export const GoalsView: React.FC = () => {
   const [actionType, setActionType] = useState<'aporte' | 'resgate' | null>(null);
   const [actionAccountId, setActionAccountId] = useState<string>('');
   const [actionAmount, setActionAmount] = useState('');
+  
+  const [editingDeadlineGoal, setEditingDeadlineGoal] = useState<Goal | null>(null);
+  const [newDeadline, setNewDeadline] = useState<string>('');
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<GoalFormValues>({
     resolver: zodResolver(goalSchema),
@@ -144,6 +147,15 @@ export const GoalsView: React.FC = () => {
     if (window.confirm('Tem certeza que deseja apagar este objetivo (caixinha) do seu planejamento no IndexedDB?')) {
       await db.goals.delete(id);
     }
+  };
+
+  const handleUpdateDeadline = async () => {
+    if (!editingDeadlineGoal || !editingDeadlineGoal.id || !newDeadline) return;
+    await db.goals.update(editingDeadlineGoal.id, {
+      deadline: newDeadline
+    });
+    setEditingDeadlineGoal(null);
+    setNewDeadline('');
   };
 
   // Cálculo Geral Consolidado de Caixinhas
@@ -269,6 +281,16 @@ export const GoalsView: React.FC = () => {
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-rose-500" />
                       Prazo: {formatDate(goal.deadline)}
+                      <button 
+                        onClick={() => {
+                          setEditingDeadlineGoal(goal);
+                          setNewDeadline(goal.deadline);
+                        }}
+                        className="ml-1 p-1 text-gray-400 hover:text-amber-500 hover:bg-amber-500/10 rounded transition-colors"
+                        title="Alterar data limite"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
                     </span>
                   </div>
 
@@ -399,6 +421,35 @@ export const GoalsView: React.FC = () => {
             </Button>
             <Button variant="primary" onClick={handleGoalAction}>
               Confirmar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal para Alterar Prazo */}
+      <Modal
+        isOpen={!!editingDeadlineGoal}
+        onClose={() => setEditingDeadlineGoal(null)}
+        title={`Alterar Prazo: ${editingDeadlineGoal?.title}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Selecione a nova data limite para este plano:
+          </p>
+
+          <Input
+            label="Nova Data Limite"
+            type="date"
+            value={newDeadline}
+            onChange={(e) => setNewDeadline(e.target.value)}
+          />
+
+          <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200 dark:border-gray-800">
+            <Button variant="outline" onClick={() => setEditingDeadlineGoal(null)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={handleUpdateDeadline}>
+              Salvar Novo Prazo
             </Button>
           </div>
         </div>
